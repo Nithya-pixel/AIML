@@ -1,0 +1,40 @@
+import csv
+
+
+# Step 1: Load dataset
+def load_data(filename):
+    with open(filename, 'r') as file:
+        reader = csv.reader(file)
+        data = list(reader)
+    header = data[0]  # column names
+    rows = data[1:]  # actual data
+    return header, rows
+
+
+# Step 2: Find-S Algorithm
+def find_s_algorithm(data):
+    # Initialize hypothesis with the most specific values
+    hypothesis = ['∅'] * (len(data[0]) - 1)  # exclude target column
+
+    print("Initial Hypothesis:", hypothesis)
+
+    for i, row in enumerate(data):
+        attributes = row[:-1]  # all except target
+        target = row[-1]  # last column
+
+        if target == "Yes":  # only positive instances
+            for j in range(len(attributes)):
+                if hypothesis[j] == '∅':
+                    hypothesis[j] = attributes[j]
+                elif hypothesis[j] != attributes[j]:
+                    hypothesis[j] = '?'
+            print(f"After instance {i + 1} ({row}): {hypothesis}")
+
+    return hypothesis
+
+
+# Step 3: Run program
+if __name__ == "__main__":
+    header, rows = load_data("workload_data.csv")
+    final_hypothesis = find_s_algorithm(rows)
+    print("\nFinal Specific Hypothesis:", final_hypothesis)
