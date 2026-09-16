@@ -1,0 +1,161 @@
+# Experiment: Implementation of Candidate Elimination Algorithm
+# Candidate Elimination Algorithm
+# Dataset: EnjoySport
+
+# Training Dataset
+dataset = [
+    (["Sunny", "Warm", "Normal", "Strong"], "Yes"),
+    (["Sunny", "Warm", "High", "Strong"], "Yes"),
+    (["Rainy", "Cold", "High", "Strong"], "No"),
+    (["Sunny", "Warm", "High", "Weak"], "Yes")
+]
+
+# Attribute values
+domains = [
+    ["Sunny", "Rainy"],
+    ["Warm", "Cold"],
+    ["Normal", "High"],
+    ["Strong", "Weak"]
+]
+
+num_attributes = len(domains)
+
+# Most Specific Boundary (S)
+S = [["Ø"] * num_attributes]
+
+# Most General Boundary (G)
+G = [["?"] * num_attributes]
+
+
+# Check whether hypothesis covers an instance
+def covers(hypothesis, instance):
+    for h, x in zip(hypothesis, instance):
+        if h != "?" and h != x:
+            return False
+    return True
+
+
+# Check whether hypothesis h1 is more general than h2
+def more_general_or_equal(h1, h2):
+    for a, b in zip(h1, h2):
+        if a != "?" and a != b:
+            return False
+    return True
+
+
+# Remove duplicate hypotheses
+def remove_duplicates(hypotheses):
+    result = []
+    for h in hypotheses:
+        if h not in result:
+            result.append(h)
+    return result
+
+
+# Minimal generalisation of S
+def generalize_S(s, instance):
+    new_s = s.copy()
+
+    for i in range(num_attributes):
+        if new_s[i] == "Ø":
+            new_s[i] = instance[i]
+        elif new_s[i] != instance[i]:
+            new_s[i] = "?"
+
+    return new_s
+
+
+# Minimal specializations of G
+def specialize_G(g, instance):
+    specializations = []
+
+    for i in range(num_attributes):
+        if g[i] == "?":
+            for value in domains[i]:
+                if value != instance[i]:
+                    new_hypothesis = g.copy()
+                    new_hypothesis[i] = value
+                    specializations.append(new_hypothesis)
+
+    return specializations
+
+
+# Print boundaries
+def print_boundaries(S, G):
+    print("S =", S)
+    print("G =", G)
+
+
+# Candidate Elimination Algorithm
+print("INITIALIZATION")
+print_boundaries(S, G)
+
+print("\n" + "=" * 60)
+
+for step, (instance, target) in enumerate(dataset, start=1):
+
+    print(f"\nProcessing D{step}: {instance} -> {target}")
+
+    if target == "Yes":
+
+        # Generalize S to cover positive instance
+        S = [
+            generalize_S(s, instance)
+            for s in S
+            if not covers(s, instance)
+        ] + [
+            s for s in S
+            if covers(s, instance)
+        ]
+
+        # Remove hypotheses in S that are not more specific than
+        # at least one hypothesis in G
+        S = [
+            s for s in remove_duplicates(S)
+            if any(more_general_or_equal(g, s) for g in G)
+        ]
+
+        # Remove members of G inconsistent with positive instance
+        G = [
+            g for g in G
+            if covers(g, instance)
+        ]
+
+    else:
+
+        # Remove hypotheses in S that cover negative instance
+        S = [
+            s for s in S
+            if not covers(s, instance)
+        ]
+
+        # Specialize G to exclude negative instance
+        new_G = []
+
+        for g in G:
+            if covers(g, instance):
+                specializations = specialize_G(g, instance)
+
+                for h in specializations:
+                    # Retain only hypotheses more general than
+                    # at least one member of S
+                    if any(
+                        more_general_or_equal(h, s)
+                        for s in S
+                    ):
+                        new_G.append(h)
+            else:
+                new_G.append(g)
+
+        G = remove_duplicates(new_G)
+
+    print(f"After processing D{step}:")
+    print_boundaries(S, G)
+
+print("\n" + "=" * 60)
+print("FINAL VERSION SPACE BOUNDARIES")
+print("Most Specific Boundary (S):")
+print(S)
+
+print("\nMost General Boundary (G):")
+print(G)
