@@ -1,127 +1,308 @@
 import math
-
-# Training dataset
-data = [
-    {"Day": "D1", "Outlook": "Sunny", "Temperature": "Hot", "Humidity": "High", "Wind": "Weak", "Play Tennis": "No"},
-    {"Day": "D2", "Outlook": "Sunny", "Temperature": "Hot", "Humidity": "High", "Wind": "Strong", "Play Tennis": "No"},
-    {"Day": "D3", "Outlook": "Overcast", "Temperature": "Hot", "Humidity": "High", "Wind": "Weak", "Play Tennis": "Yes"},
-    {"Day": "D4", "Outlook": "Rain", "Temperature": "Mild", "Humidity": "High", "Wind": "Weak", "Play Tennis": "Yes"},
-    {"Day": "D5", "Outlook": "Rain", "Temperature": "Cool", "Humidity": "Normal", "Wind": "Weak", "Play Tennis": "Yes"},
-    {"Day": "D6", "Outlook": "Rain", "Temperature": "Cool", "Humidity": "Normal", "Wind": "Strong", "Play Tennis": "No"},
-    {"Day": "D7", "Outlook": "Overcast", "Temperature": "Cool", "Humidity": "Normal", "Wind": "Strong", "Play Tennis": "Yes"},
-    {"Day": "D8", "Outlook": "Sunny", "Temperature": "Mild", "Humidity": "High", "Wind": "Weak", "Play Tennis": "No"},
-    {"Day": "D9", "Outlook": "Sunny", "Temperature": "Cool", "Humidity": "Normal", "Wind": "Weak", "Play Tennis": "Yes"},
-    {"Day": "D10", "Outlook": "Rain", "Temperature": "Mild", "Humidity": "Normal", "Wind": "Weak", "Play Tennis": "Yes"},
-    {"Day": "D11", "Outlook": "Sunny", "Temperature": "Mild", "Humidity": "Normal", "Wind": "Strong", "Play Tennis": "Yes"},
-    {"Day": "D12", "Outlook": "Overcast", "Temperature": "Mild", "Humidity": "High", "Wind": "Strong", "Play Tennis": "Yes"},
-    {"Day": "D13", "Outlook": "Overcast", "Temperature": "Hot", "Humidity": "Normal", "Wind": "Weak", "Play Tennis": "Yes"},
-    {"Day": "D14", "Outlook": "Rain", "Temperature": "Mild", "Humidity": "High", "Wind": "Strong", "Play Tennis": "No"}
-]
-
-target = "Play Tennis"
-attributes = ["Outlook", "Temperature", "Humidity", "Wind"]
+import pandas as pd
+import matplotlib.pyplot as plt
 
 
-# Calculate entropy
-def entropy(rows):
-    total = len(rows)
+# ==========================================
+# 1. ENTROPY
+# ==========================================
 
-    if total == 0:
-        return 0
+def entropy(data):
+    target = data["Play"]
+    counts = target.value_counts()
 
-    counts = {}
+    total = len(target)
+    ent = 0
 
-    for row in rows:
-        label = row[target]
-        counts[label] = counts.get(label, 0) + 1
-
-    result = 0
-
-    for count in counts.values():
+    for count in counts:
         probability = count / total
-        result -= probability * math.log2(probability)
+        ent -= probability * math.log2(probability)
 
-    return result
+    return ent
 
 
-# Calculate information gain
-def information_gain(rows, attribute):
-    total_entropy = entropy(rows)
-    total = len(rows)
+# ==========================================
+# 2. INFORMATION GAIN
+# ==========================================
 
-    values = set(row[attribute] for row in rows)
+def information_gain(data, attribute):
+
+    total_entropy = entropy(data)
 
     weighted_entropy = 0
 
-    for value in values:
-        subset = [row for row in rows if row[attribute] == value]
-        weighted_entropy += (len(subset) / total) * entropy(subset)
+    for value in data[attribute].unique():
+
+        subset = data[data[attribute] == value]
+
+        weighted_entropy += (
+            len(subset) / len(data)
+        ) * entropy(subset)
 
     return total_entropy - weighted_entropy
 
 
-# Build the ID3 decision tree
-def id3(rows, remaining_attributes):
-    labels = [row[target] for row in rows]
+# ==========================================
+# 3. ID3 ALGORITHM
+# ==========================================
 
-    # If all records belong to one class
-    if len(set(labels)) == 1:
-        return labels[0]
+def id3(data, attributes):
 
-    # If no attributes remain, return the majority class
-    if not remaining_attributes:
-        return max(set(labels), key=labels.count)
+    target = data["Play"]
 
-    # Select the attribute with highest information gain
-    best_attribute = max(
-        remaining_attributes,
-        key=lambda attribute: information_gain(rows, attribute)
-    )
+    # If all examples belong to same class
+    if len(target.unique()) == 1:
+        return target.iloc[0]
+
+    # If no attributes remain
+    if len(attributes) == 0:
+        return target.value_counts().idxmax()
+
+    # Calculate information gain
+    gains = {}
+
+    for attribute in attributes:
+        gains[attribute] = information_gain(data, attribute)
+
+    # Select attribute with highest gain
+    best_attribute = max(gains, key=gains.get)
 
     tree = {best_attribute: {}}
 
-    values = set(row[best_attribute] for row in rows)
+    # Create branches
+    for value in data[best_attribute].unique():
 
-    for value in values:
-        subset = [
-            row for row in rows
-            if row[best_attribute] == value
+        subset = data[data[best_attribute] == value]
+
+        remaining_attributes = [
+            attr for attr in attributes
+            if attr != best_attribute
         ]
 
-        new_attributes = [
-            attribute for attribute in remaining_attributes
-            if attribute != best_attribute
-        ]
-
-        tree[best_attribute][value] = id3(subset, new_attributes)
+        tree[best_attribute][value] = id3(
+            subset,
+            remaining_attributes
+        )
 
     return tree
 
 
-# Print the decision tree neatly
-def print_tree(tree, indent=""):
-    if not isinstance(tree, dict):
-        print(indent + "→ " + tree)
-        return
+# ==========================================
+# 4. DATASET
+# ==========================================
 
-    attribute = next(iter(tree))
-    print(indent + attribute + "?")
+data = pd.DataFrame({
 
-    for value, subtree in tree[attribute].items():
-        print(indent + "├── " + value)
-        print_tree(subtree, indent + "│   ")
+    "Outlook": [
+        "Sunny", "Sunny", "Overcast", "Rain",
+        "Rain", "Rain", "Overcast", "Sunny",
+        "Sunny", "Rain", "Sunny", "Overcast",
+        "Overcast", "Rain"
+    ],
+
+    "Temperature": [
+        "Hot", "Hot", "Hot", "Mild",
+        "Cool", "Cool", "Cool", "Mild",
+        "Cool", "Mild", "Mild", "Mild",
+        "Hot", "Mild"
+    ],
+
+    "Humidity": [
+        "High", "High", "High", "High",
+        "Normal", "Normal", "Normal", "High",
+        "Normal", "Normal", "Normal", "High",
+        "Normal", "High"
+    ],
+
+    "Wind": [
+        "Weak", "Strong", "Weak", "Weak",
+        "Weak", "Strong", "Strong", "Weak",
+        "Weak", "Weak", "Strong", "Strong",
+        "Weak", "Strong"
+    ],
+
+    "Play": [
+        "No", "No", "Yes", "Yes",
+        "Yes", "No", "Yes", "No",
+        "Yes", "Yes", "Yes", "Yes",
+        "Yes", "No"
+    ]
+})
 
 
-# Main program
-print("ENTROPY OF COMPLETE DATASET:")
-print(f"{entropy(data):.3f}")
+# ==========================================
+# 5. DISPLAY INFORMATION GAIN
+# ==========================================
 
-print("\nINFORMATION GAIN:")
+attributes = [
+    "Outlook",
+    "Temperature",
+    "Humidity",
+    "Wind"
+]
+
+print("Entropy of Dataset:",
+      round(entropy(data), 4))
+
+print("\nInformation Gain:")
+
 for attribute in attributes:
     gain = information_gain(data, attribute)
-    print(f"{attribute}: {gain:.3f}")
+    print(attribute, "=", round(gain, 4))
+
+
+# ==========================================
+# 6. BUILD ID3 DECISION TREE
+# ==========================================
 
 tree = id3(data, attributes)
 
-print("\nFINAL ID3 DECISION TREE:")
-print_tree(tree)
+print("\nDecision Tree:")
+print(tree)
+
+
+# ==========================================
+# 7. DRAW DECISION TREE
+# ==========================================
+
+fig, ax = plt.subplots(figsize=(14, 8))
+
+ax.set_xlim(0, 14)
+ax.set_ylim(0, 10)
+
+ax.axis("off")
+
+# Store positions
+positions = {}
+
+
+# ------------------------------------------
+# Count number of leaves
+# ------------------------------------------
+
+def count_leaves(tree):
+
+    if not isinstance(tree, dict):
+        return 1
+
+    total = 0
+
+    for child in tree.values():
+        total += count_leaves(child)
+
+    return total
+
+
+# ------------------------------------------
+# Draw tree recursively
+# ------------------------------------------
+
+def draw_tree(tree, x, y, width, level=0):
+
+    # If leaf node
+    if not isinstance(tree, dict):
+
+        if tree == "Yes":
+            color = "lightgreen"
+        else:
+            color = "lightcoral"
+
+        ax.text(
+            x,
+            y,
+            tree,
+            ha="center",
+            va="center",
+            fontsize=14,
+            fontweight="bold",
+            bbox=dict(
+                boxstyle="round,pad=0.5",
+                facecolor=color,
+                edgecolor="black"
+            )
+        )
+
+        return
+
+    # Get attribute
+    attribute = list(tree.keys())[0]
+
+    children = tree[attribute]
+
+    # Draw decision node
+    ax.text(
+        x,
+        y,
+        attribute,
+        ha="center",
+        va="center",
+        fontsize=14,
+        fontweight="bold",
+        bbox=dict(
+            boxstyle="round,pad=0.6",
+            facecolor="lightblue",
+            edgecolor="black"
+        )
+    )
+
+    child_count = len(children)
+
+    # Calculate positions of children
+    child_width = width / child_count
+
+    start_x = x - width / 2 + child_width / 2
+
+    child_y = y - 2
+
+    for i, (value, child) in enumerate(children.items()):
+
+        child_x = start_x + i * child_width
+
+        # Draw line
+        ax.plot(
+            [x, child_x],
+            [y - 0.35, child_y + 0.35],
+            "k-"
+        )
+
+        # Put branch label
+        middle_x = (x + child_x) / 2
+        middle_y = (y + child_y) / 2
+
+        ax.text(
+            middle_x,
+            middle_y,
+            str(value),
+            fontsize=11,
+            ha="center",
+            va="center"
+        )
+
+        # Draw child
+        draw_tree(
+            child,
+            child_x,
+            child_y,
+            child_width,
+            level + 1
+        )
+
+
+# ==========================================
+# 8. DRAW THE TREE
+# ==========================================
+
+draw_tree(
+    tree,
+    x=7,
+    y=9,
+    width=12
+)
+
+plt.title(
+    "ID3 Decision Tree - Play Tennis",
+    fontsize=18,
+    fontweight="bold"
+)
+
+plt.show()
